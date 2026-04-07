@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+python-dotenv
+langchain
+langchain-groq
+crawl4ai
+gspread
+oauth2client
+jinja2
+pydantic
