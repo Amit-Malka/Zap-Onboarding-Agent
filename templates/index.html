@@ -7,9 +7,123 @@
     <link rel="stylesheet" href="/static/style.css" />
   </head>
   <body>
-    <main class="container">
-      <h1>Zap Onboarding Agent</h1>
-      <p>Project scaffold is ready.</p>
+    <main class="page">
+      <section class="hero-card">
+        <h1>Zap Onboarding Agent</h1>
+        <p>Enter a Dapay Zahav profile URL to generate a customer card and onboarding script.</p>
+        <form id="onboarding-form" class="onboarding-form">
+          <label for="dapayzahav-url">Dapay Zahav URL</label>
+          <div class="input-row">
+            <input
+              id="dapayzahav-url"
+              name="dapayzahav_url"
+              type="url"
+              placeholder="https://www.d.co.il/..."
+              required
+            />
+            <button type="submit" id="run-button">Run Onboarding</button>
+          </div>
+        </form>
+      </section>
+
+      <section id="loading" class="loading hidden" aria-live="polite">
+        <div class="spinner"></div>
+        <span>Running onboarding pipeline...</span>
+      </section>
+
+      <section id="result" class="result-grid hidden">
+        <article class="panel">
+          <h2>Customer Card</h2>
+          <div id="customer-card" class="business-card"></div>
+        </article>
+        <article class="panel">
+          <h2>תסריט שיחה</h2>
+          <pre id="onboarding-script" class="script-output" dir="rtl"></pre>
+        </article>
+      </section>
+
+      <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
     </main>
+
+    <script>
+      const form = document.getElementById("onboarding-form");
+      const urlInput = document.getElementById("dapayzahav-url");
+      const runButton = document.getElementById("run-button");
+      const loading = document.getElementById("loading");
+      const resultSection = document.getElementById("result");
+      const customerCard = document.getElementById("customer-card");
+      const scriptOutput = document.getElementById("onboarding-script");
+      const toast = document.getElementById("toast");
+
+      const showToast = (message, isSuccess) => {
+        toast.textContent = message;
+        toast.className = `toast ${isSuccess ? "success" : "error"}`;
+        setTimeout(() => {
+          toast.className = "toast hidden";
+        }, 4000);
+      };
+
+      const formatScript = (scriptText) =>
+        scriptText
+          .split("\n")
+          .map((line) => line.replace(/^#+\s*/, "").trim())
+          .filter((line) => /[\u0590-\u05FF]/.test(line))
+          .join("\n");
+
+      const renderCard = (card, missingFields) => {
+        const cardFields = Object.entries(card).filter(([key]) => key !== "missing_fields");
+        customerCard.innerHTML = cardFields
+          .map(([field, value]) => {
+            const isMissing = missingFields.includes(field);
+            const safeValue =
+              value === null || value === undefined || value === ""
+                ? "Missing"
+                : Array.isArray(value)
+                ? value.join(", ")
+                : String(value);
+            return `
+              <div class="card-row">
+                <span class="card-label">${field.replaceAll("_", " ")}</span>
+                <span class="card-value">${safeValue}</span>
+                ${isMissing ? '<span class="missing-badge">Missing</span>' : ""}
+              </div>
+            `;
+          })
+          .join("");
+      };
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        runButton.disabled = true;
+        loading.classList.remove("hidden");
+        resultSection.classList.add("hidden");
+
+        try {
+          const response = await fetch("/run-onboarding", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ dapayzahav_url: urlInput.value.trim() }),
+          });
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.detail || "Unexpected server error");
+          }
+
+          renderCard(data.customer_card, data.missing_fields || []);
+          scriptOutput.textContent = formatScript(data.onboarding_script || "");
+          resultSection.classList.remove("hidden");
+          showToast(
+            data.crm_logged ? "CRM logging succeeded" : "CRM logging failed",
+            Boolean(data.crm_logged)
+          );
+        } catch (error) {
+          showToast(error.message || "Failed to run onboarding", false);
+        } finally {
+          loading.classList.add("hidden");
+          runButton.disabled = false;
+        }
+      });
+    </script>
   </body>
 </html>

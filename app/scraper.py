@@ -2,6 +2,8 @@ import logging
 from typing import Any
 
 from crawl4ai import AsyncWebCrawler
+import requests
+from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
@@ -36,9 +38,32 @@ async def scrape_digital_assets(dapayzahav_url: str) -> dict[str, str]:
         if not getattr(result, "success", False):
             err = getattr(result, "error_message", None) or "crawl unsuccessful"
             logger.error("Scrape failed for %s: %s", source, err)
-            return {"dapayzahav_raw": "", "source_url": source}
+            return {"dapayzahav_raw": _fallback_http_scrape(source), "source_url": source}
 
         return {"dapayzahav_raw": _markdown_text_from_result(result), "source_url": source}
     except Exception:
         logger.exception("Scrape failed for %s", source)
-        return {"dapayzahav_raw": "", "source_url": source}
+        return {"dapayzahav_raw": _fallback_http_scrape(source), "source_url": source}
+
+
+def _fallback_http_scrape(url: str) -> str:
+    """Fallback scraper for environments where browser automation is unavailable."""
+    try:
+        response = requests.get(
+            url,
+            timeout=20,
+            headers={
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/124.0.0.0 Safari/537.36"
+                )
+            },
+        )
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+        text = soup.get_text(separator="\n", strip=True)
+        return text[:15000]
+    except Exception:
+        logger.exception("Fallback HTTP scrape failed for %s", url)
+        return ""

@@ -92,3 +92,41 @@ def test_extract_business_data_returns_null_fallback_on_bad_json(monkeypatch) ->
         "source_url": "https://source.example",
         "has_personal_website": None,
     }
+
+
+def test_extract_business_data_parses_json_inside_markdown_block(monkeypatch) -> None:
+    from app import extractor
+
+    class FakeResponse:
+        content = (
+            "```json\n"
+            '{"business_name":"A","owner_name":null,"phone":"123","whatsapp":null,'
+            '"address":"Addr","area":"Area","category":"Cat","services":["S1"],'
+            '"service_areas":["SA"],"working_hours":"9-5","rating":null,'
+            '"review_count":null,"about_text":null,"source_url":"https://x.com",'
+            '"has_personal_website":false}\n'
+            "```"
+        )
+
+    class FakeChain:
+        def invoke(self, _payload):
+            return FakeResponse()
+
+    class FakePrompt:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __or__(self, _llm):
+            return FakeChain()
+
+    class FakeChatGroq:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    monkeypatch.setattr(extractor, "PromptTemplate", FakePrompt)
+    monkeypatch.setattr(extractor, "ChatGroq", FakeChatGroq)
+
+    result = extractor.extract_business_data("raw", "https://x.com")
+
+    assert result["business_name"] == "A"
+    assert result["services"] == ["S1"]

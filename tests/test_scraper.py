@@ -32,3 +32,27 @@ async def test_scrape_digital_assets_returns_expected_keys() -> None:
     assert out["source_url"] == url
     assert out["dapayzahav_raw"] == "# Profile\nContent here."
     mock_crawler.arun.assert_awaited_once_with(url=url)
+
+
+@pytest.mark.asyncio
+async def test_scrape_digital_assets_falls_back_to_http_fetch(monkeypatch) -> None:
+    from app import scraper
+
+    mock_crawler = MagicMock()
+    mock_crawler.__aenter__ = AsyncMock(side_effect=NotImplementedError())
+    mock_crawler.__aexit__ = AsyncMock(return_value=None)
+
+    class FakeHttpResponse:
+        status_code = 200
+        text = "<html><body><h1>Business Name</h1><p>Plumbing in Tel Aviv</p></body></html>"
+
+        def raise_for_status(self):
+            return None
+
+    monkeypatch.setattr(scraper, "AsyncWebCrawler", MagicMock(return_value=mock_crawler))
+    monkeypatch.setattr(scraper.requests, "get", lambda *_args, **_kwargs: FakeHttpResponse())
+
+    out = await scraper.scrape_digital_assets("https://www.d.co.il/example")
+
+    assert out["source_url"] == "https://www.d.co.il/example"
+    assert "Business Name" in out["dapayzahav_raw"]

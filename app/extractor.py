@@ -56,7 +56,7 @@ def extract_business_data(raw_text: str, source_url: str) -> dict[str, Any]:
             "Extract business information from the provided raw text.\n"
             "Return ONLY a valid JSON object with no markdown and no extra text.\n"
             "Use exactly this schema and keys:\n"
-            "{\n"
+            "{{\n"
             '  "business_name": str,\n'
             '  "owner_name": str or null,\n'
             '  "phone": str,\n'
@@ -72,7 +72,7 @@ def extract_business_data(raw_text: str, source_url: str) -> dict[str, Any]:
             '  "about_text": str or null,\n'
             '  "source_url": str,\n'
             '  "has_personal_website": bool\n'
-            "}\n\n"
+            "}}\n\n"
             "Raw text:\n{raw_text}\n\n"
             "Source URL:\n{source_url}\n"
         ),
@@ -81,9 +81,10 @@ def extract_business_data(raw_text: str, source_url: str) -> dict[str, Any]:
     chain = prompt | ChatGroq(model="qwen/qwen3-32b")
     response = chain.invoke({"raw_text": raw_text, "source_url": source_url})
     response_text = response if isinstance(response, str) else getattr(response, "content", "")
+    candidate_text = _extract_json_candidate(response_text)
 
     try:
-        parsed = json.loads(response_text)
+        parsed = json.loads(candidate_text)
         return parsed if isinstance(parsed, dict) else _null_business_data(source_url)
     except (json.JSONDecodeError, TypeError) as error:
         logger.error("Failed to parse business extraction JSON: %s", error)
@@ -94,3 +95,18 @@ def _null_business_data(source_url: str) -> dict[str, Any]:
     result = {field: None for field in BUSINESS_DATA_FIELDS}
     result["source_url"] = source_url
     return result
+
+
+def _extract_json_candidate(text: Any) -> str:
+    if not isinstance(text, str):
+        return ""
+    stripped = text.strip()
+    if stripped.startswith("```"):
+        lines = stripped.splitlines()
+        if len(lines) >= 3 and lines[0].startswith("```") and lines[-1].startswith("```"):
+            stripped = "\n".join(lines[1:-1]).strip()
+    start_idx = stripped.find("{")
+    end_idx = stripped.rfind("}")
+    if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+        return stripped[start_idx : end_idx + 1]
+    return stripped
