@@ -1,21 +1,25 @@
+from datetime import datetime
+from uuid import UUID
+
 from app.card_generator import build_customer_card
 
 
-def test_build_customer_card_maps_profile_fields() -> None:
-    profile = {
-        "company_name": "Acme Inc.",
+def test_build_customer_card_adds_metadata_and_missing_fields() -> None:
+    extracted_data = {
+        "business_name": "Acme Inc.",
+        "owner_name": None,
         "industry": "SaaS",
-        "pain_points": ["manual onboarding"],
-        "goals": ["automation"],
+        "phone": "03-5551234",
+        "email": None,
     }
-    card = build_customer_card(profile)
-    assert card["title"] == "Acme Inc."
+
+    card = build_customer_card(extracted_data)
+
+    assert UUID(card["card_id"])
+    datetime.fromisoformat(card["created_at"])
+    assert card["business_name"] == "Acme Inc."
     assert card["industry"] == "SaaS"
-    assert card["pain_points"] == ["manual onboarding"]
-    assert card["goals"] == ["automation"]
-
-
-def test_build_customer_card_uses_defaults_when_missing_fields() -> None:
-    card = build_customer_card({})
-    assert card["title"] == "Unknown Company"
-    assert card["industry"] == "Unknown"
+    assert card["phone"] == "03-5551234"
+    assert card["owner_name"] is None
+    assert card["email"] is None
+    assert set(card["missing_fields"]) == {"owner_name", "email"}

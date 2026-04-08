@@ -1,11 +1,18 @@
+from datetime import datetime, timezone
 from typing import Any
+from uuid import uuid4
 
 
-def build_customer_card(profile: dict[str, Any]) -> dict[str, Any]:
-    """Build a customer onboarding card from extracted profile data."""
+def build_customer_card(extracted_data: dict[str, Any]) -> dict[str, Any]:
+    """Build a customer card with metadata and missing fields."""
+    missing_fields = [
+        field_name
+        for field_name, field_value in extracted_data.items()
+        if field_value is None
+    ]
     return {
-        "title": profile.get("company_name", "Unknown Company"),
-        "industry": profile.get("industry", "Unknown"),
-        "pain_points": profile.get("pain_points", []),
-        "goals": profile.get("goals", []),
+        "card_id": str(uuid4()),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        **extracted_data,
+        "missing_fields": missing_fields,
     }
