@@ -63,7 +63,7 @@ Zap Onboarding Agent automates the early customer onboarding workflow for small 
 ### 1) Clone repository
 
 ```bash
-git clone <your-repo-url>
+git clone <https://github.com/Amit-Malka/Zap-Onboarding-Agent>
 cd zap-onboarding-agent
 ```
 
@@ -117,10 +117,6 @@ Open: [http://127.0.0.1:8000](http://127.0.0.1:8000)
    - Customer Card
    - Onboarding Script
    - CRM logging toast status
-
-### Screenshot
-
-`[Screenshot placeholder: docs/images/onboarding-ui.png]`
 
 ### Example API Output
 
